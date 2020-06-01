@@ -64,8 +64,26 @@ describe "Rails 5" do
   end
 end
 
-describe "Rails 5.1" do
-  it "works with webpacker + yarn (js friends)" do
+describe "Rails 5.1 and yarn" do
+
+  # Rails generates a bin/yarn that changes the directory when you run it, this
+  # causes problems when using the node buildpack https://github.com/heroku/heroku-buildpack-ruby/issues/1001
+  def setup_bad_binstub_proc
+    Proc.new do
+      File.open("bin/yarn", "w") do |f|
+        f.puts <<~EOM
+        #!/usr/bin/env ruby
+
+        puts ENV['PATH'].inspect
+
+        raise "bad yarn binstub"
+        EOM
+      end
+      run!("chmod +x bin/yarn")
+    end
+  end
+
+  it "works without the node buildpack" do
     buildpacks = [
       :default,
       "https://github.com/sharpstone/force_absolute_paths_buildpack"
@@ -73,9 +91,26 @@ describe "Rails 5.1" do
     Hatchet::Runner.new("rails51_webpacker", buildpacks: buildpacks).deploy do |app, heroku|
       expect(app.output).to include("Installing yarn")
       expect(app.output).to include("yarn install")
+      expect(app.output).to_not include("bad yarn binstub")
 
-      expect(app.run("which -a node")).to match("/app/bin/node")
-      expect(app.run("which -a yarn")).to match("/app/vendor/yarn-")
+      expect(app.run("which node")).to match("/app/bin/node") # We put node in bin/node
+      expect(app.run("which yarn")).to match("/app/vendor/yarn-") # We put yarn in /app/vendor/yarn-
+    end
+  end
+
+  it "works with the node buildpack" do
+    buildpacks = [
+      "heroku/nodejs",
+      :default,
+      "https://github.com/sharpstone/force_absolute_paths_buildpack"
+    ]
+
+    Hatchet::Runner.new("rails51_webpacker", before_deploy: setup_bad_binstub_proc, buildpacks: buildpacks).deploy do |app, heroku|
+      expect(app.output).to include("yarn install")
+      expect(app.output).to_not include("bad yarn binstub")
+
+      expect(app.run("which node")).to match("/app/.heroku/node/bin")
+      expect(app.run("which yarn")).to match("/app/.heroku/yarn/bin")
     end
   end
 end
