@@ -95,9 +95,6 @@ WARNING
           log "assets_precompile", :status => "success"
           puts "Asset precompilation completed (#{"%.2f" % precompile.time}s)"
 
-          puts "Cleaning assets"
-          rake.task("assets:clean").invoke(env: rake_env)
-
           cleanup_assets_cache
           @cache.store public_assets_folder
           @cache.store default_assets_cache
