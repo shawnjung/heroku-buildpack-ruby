@@ -95,7 +95,6 @@ WARNING
           log "assets_precompile", :status => "success"
           puts "Asset precompilation completed (#{"%.2f" % precompile.time}s)"
 
-          cleanup_assets_cache
           @cache.store public_assets_folder
           @cache.store default_assets_cache
         else
